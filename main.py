@@ -5,13 +5,10 @@ import sys
 # Out formats
 symtab_name = "{numb} {value:15} {size:>5} {type:8} {bind:8} {vis:8} {index:>6} {name}\n"
 symtab_data = "[{numb:>4}] {value:15} {size:>5} {type:8} {bind:8} {vis:8} {index:>6} {name}\n"
-command_data = "{:08x} {:10}: {} {}\n"
+command_data = "{:08x} {:>20}: {} {}\n"
+
 
 def main(input_path, output_path):
-    # to inspect
-    from elf_parser.elf_obj import Elf32
-    elf: Elf32
-
     with open(input_path, 'rb') as elf_file:
         _bytes = elf_file.read()
 
@@ -23,7 +20,8 @@ def main(input_path, output_path):
 
     # out = elf.to_string(param = 'header')
     # out = elf.to_string(param = 'sections')
-    # out = elf.to_string(param = 'symtab')
+    out = elf.to_string(param = 'symtab')
+    print(out)
     # out = elf.to_string(param = 'commands')
     out = elf.to_string(param = 'to_test')
     # print(out)

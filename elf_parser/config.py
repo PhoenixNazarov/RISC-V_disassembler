@@ -55,7 +55,6 @@ match_header_white_list = {
     "E_SHSTRNDX": [],
 }
 
-
 # SECTIONS
 match_section = {
     (0, 4): "SH_NAME",
@@ -78,7 +77,6 @@ match_symtab = {
     (13, 14): "OTHER",
     (14, 16): "SHNDX"
 }
-
 
 # SYMTAB
 symtab_types = {
@@ -123,7 +121,6 @@ symtab_special = {
     65535: "HIRESERVE"
 }
 
-
 # TEXT
 match_uncompress_command = {
     'R': {
@@ -151,11 +148,11 @@ match_uncompress_command = {
     },
     'B': {
         (0, 7): 'opcode',
-        (7, 12): 'imm12105',
+        (7, 12): 'imm4111',
         (12, 15): 'funct3',
         (15, 20): 'rs1',
         (20, 25): 'rs2',
-        (25, 32): 'imm4111'
+        (25, 32): 'imm12105'
     },
     'U': {
         (0, 7): 'opcode',
@@ -167,6 +164,21 @@ match_uncompress_command = {
         (7, 12): 'rd',
         (12, 32): 'imm2010'
     },
+    "CSR": {
+        (0, 7): 'opcode',
+        (7, 12): 'rd',
+        (12, 15): 'funct3',
+        (15, 20): 'rs1',
+        (20, 32): 'csr'
+    }
+}
+
+IMMS_UMCOMPRESS = {
+    "I": lambda i: i,
+    "S": lambda i, i2: i + i2,
+    "B": lambda i, i2: i[0] + i2[-1] + i[1:] + i2[0:-1] + '0',
+    "U": lambda i: i + '0' * 12,
+    "J": lambda i: i[0] + i[-8:] + i[-9] + i[1:-9] + '0'  # imm[20|10:1|11|19:12]
 }
 
 ABI_REGISTERS = {
@@ -183,8 +195,13 @@ ABI_REGISTERS = {
     (28, 32): lambda i: "t" + str(i - 28 + 3)
 }
 
-
 base_uncompress = [
+    {'type': 'CSR', 'opcode': '1110011', 'funct3': '001', 'name': 'csrrw'},
+    {'type': 'CSR', 'opcode': '1110011', 'funct3': '010', 'name': 'csrrs'},
+    {'type': 'CSR', 'opcode': '1110011', 'funct3': '011', 'name': 'csrrc'},
+    {'type': 'CSR', 'opcode': '1110011', 'funct3': '101', 'name': 'csrrwi'},
+    {'type': 'CSR', 'opcode': '1110011', 'funct3': '110', 'name': 'csrsi'},
+    {'type': 'CSR', 'opcode': '1110011', 'funct3': '111', 'name': 'csrci'},
     {'type': 'U', 'opcode': '0110111', 'name': 'lui'},
     {'type': 'U', 'opcode': '0010111', 'name': 'auipc'},
     {'type': 'J', 'opcode': '1101111', 'name': 'jal'},
@@ -234,16 +251,31 @@ base_uncompress = [
     {'type': 'R', 'funct3': '111', 'funct7': '0000001', 'opcode': '0110011', 'name': 'remu'}
 ]
 
-for i in range(len(base_uncompress)):
-    base_uncompress[i]['name'] = base_uncompress[i]['name'].lower()
-    print(base_uncompress[i])
-
 opcodes_type = {'U': {'0110111', '0010111'},
                 'J': {'1101111'},
-                'I': {'0000011', '1100111', '1110011', '0010011'},
+                'I': {'0000011', '1100111', '0010011'},
                 'B': {'1100011'},
                 'S': {'0100011'},
-                'R': {'0110011', '0010011'}}
-
+                'R': {'0110011', '0010011'},
+                "CSR": {'1110011'}
+                }
 
 I_type_except = ['lb', 'lh', 'lw', 'lbu', 'lhu']
+I_control = ['ecall', 'ebreak']
+R_type_except = ['srai', 'srli', 'slli']
+
+# SLLI SRLI SRAI
+RI_conflict = '0010011'
+funct3_R = ['001', '101']
+funct3_I = ['000', '010', '011', '100', '110', '111']
+
+
+# ECALL EBREAK , CSR
+e_opcode = '1110011'
+
+compress = {('00', '000'): 'ADDI4SPN', ('00', '001'): 'FLD', ('00', '010'): 'LW', ('00', '011'): 'FLW',
+            ('00', '100'): 'Reserved', ('00', '101'): 'FSD', ('00', '110'): 'SW', ('00', '111'): 'FSW',
+            ('01', '000'): 'ADDI', ('01', '001'): 'JAL', ('01', '010'): 'LI', ('01', '011'): 'LUI/ADDI16SP',
+            ('01', '100'): 'MISC-ALU', ('01', '101'): 'J', ('01', '110'): 'BEQZ', ('01', '111'): 'BNEZ',
+            ('10', '000'): 'SLLI', ('10', '001'): 'FLDSP', ('10', '010'): 'LWSP', ('10', '011'): 'FLWSP',
+            ('10', '100'): 'J[AL]R/MV/ADD', ('10', '101'): 'FSDSP', ('10', '110'): 'SWSP', ('10', '111'): 'FSWSP'}

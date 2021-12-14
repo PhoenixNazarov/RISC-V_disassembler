@@ -50,9 +50,21 @@ class Elf32:
 
     def add_symtab(self, symtab):
         self.__symtab += symtab
+        self.get_symtab_for_command()
 
     def add_command(self, commandsBase):
         self.__commandsBase = commandsBase
+
+    def get_symtab_for_command(self):
+        out = {}
+        for i in self.__symtab:
+            for ii in i:
+                if ii[0] == 'VALUE':
+                    val = int(ii[1], 16)
+                if ii[0] == 'PARSE_NAME':
+                    name = ii[1]
+            out.update({val: {'name': name}})
+        Command.symtab = out
 
     def get_section_by_name(self, name):
         # if name in '.symtab':
@@ -106,6 +118,7 @@ class Elf32:
             case "to_test":
                 out = '.text\n'
                 out += self.__commands_to_string()
+                out += '\n'
                 out += '.symtab\n'
                 out += self.__symtab_to_string()
                 return out
@@ -137,31 +150,35 @@ class CommandsBase:
             self.__parse_next_command()
 
     def __parse_next_command(self):
+        cur_addr = self.__first_addr + self.__index
         if Command.is_compress_command(self.__bytes[self.__index]):
-            command = CommandCompress(self.__get_next_block('compress'))
+            command = CommandCompress(self.__get_next_block('compress'), cur_addr)
         else:
-            command = CommandUncompress(self.__get_next_block('uncompress'))
+            command = CommandUncompress(self.__get_next_block('uncompress'), cur_addr)
         self.__commands.append(command)
 
     def to_string(self, _format):
+        for i in self.__commands:
+            i.collect_data()
+        for i in self.__commands:
+            i.update_points()
+
         string = ''
-        addr = self.__first_addr
         for i in self.__commands:
             string += _format.format(
-                addr,
                 *i.take_var_to_format()
             )
-            if i.is_compress():
-                addr += 2
-            else:
-                addr += 4
 
         return string
 
 
 class Command:
-    def __init__(self, _bytes):
+    _points = {}
+    symtab = {}
+
+    def __init__(self, _bytes, addr):
         self._bits = self.bytes_to_bites(_bytes)
+        self.addr = addr
         self.string = ''
         self.start = ''
         self.end = ''
@@ -169,8 +186,9 @@ class Command:
 
     def take_var_to_format(self):
         return [
+            self.addr,
             self.start,
-            self.collect_data(),
+            self.string,
             self.end
         ]
 
@@ -221,14 +239,16 @@ class Command:
 
 
 class CommandCompress(Command):
-    def is_compress(self):
-        return True
+    def scenario(self):
+        self.__name = ''
+        pass
+
+    def __get_name(self):
+        first_code = self._bits[-2:]
+        second_code = self._bits[:3]
 
 
 class CommandUncompress(Command):
-    def is_compress(self):
-        return False
-
     def scenario(self):
         self.__opcode = self._bits[-7:]
         self.__type = ''
@@ -240,19 +260,30 @@ class CommandUncompress(Command):
         self.__get_name()
 
     def __get_type(self):
-        find = 0
-        for type_name, opcodes in fm.opcodes_type.items():
-            if self.__opcode in opcodes:
-                find += 1
-                self.__type = type_name
+        match self.__opcode:
+            case fm.RI_conflict:
+                funct3 = self._bits[::-1][12: 15][::-1]
+                if funct3 in fm.funct3_R:
+                    self.__type = 'R'
+                else:
+                    self.__type = 'I'
 
-        match find:
-            case 0:
-                raise "Не нашли type для команды"
-            case 1:
-                pass
+            case fm.e_opcode:
+                funct3 = self._bits[::-1][12: 15][::-1]
+                if funct3 == '000':
+                    self.__type = 'I'
+                else:
+                    self.__type = 'CSR'
+
             case _:
-                self.__type = 'undefined'
+                find = 0
+                for type_name, opcodes in fm.opcodes_type.items():
+                    if self.__opcode in opcodes:
+                        find += 1
+                        self.__type = type_name
+
+                if find != 1:
+                    raise "Не удалось определить type для команды " + self.__opcode
 
     def __match_data(self):
         format_parse = fm.match_uncompress_command[self.__type]
@@ -261,31 +292,73 @@ class CommandUncompress(Command):
             self.__values.update({i[0]: i[1][::-1]})
 
     def collect_data(self):
-        if self.__name == 'srli':
-            print('yes', self.__type)
         match self.__type:
             case "R":
                 rd = self.register_by_ABI(self.__values['rd'])
                 rs1 = self.register_by_ABI(self.__values['rs1'])
                 rs2 = self.register_by_ABI(self.__values['rs2'])
-                self.string = f'{self.__name} {rd}, {rs1}, {rs2}'
+                if self.__name in fm.R_type_except:
+                    rs2 = hex(int(self.__values['rs2'], 2))
+                    self.string = f'{self.__name} {rd}, {rs1}, {rs2}'
+                else:
+                    self.string = f'{self.__name} {rd}, {rs1}, {rs2}'
 
             case "I":
                 rd = self.register_by_ABI(self.__values['rd'])
                 rs1 = self.register_by_ABI(self.__values['rs1'])
-                addit = self.additional_to_2(self.__values["imm11"])
+                imm = self.additional_to_2(fm.IMMS_UMCOMPRESS['I'](self.__values["imm11"]))  # imm[11:0]
                 if self.__name in fm.I_type_except:
-                    self.string = f'{self.__name} {rd}, {addit}({rs1})'
+                    self.string = f'{self.__name} {rd}, {imm}({rs1})'
+                elif self.__name in fm.I_control:
+                    self.string = f'{self.__name}'
                 else:
-                    self.string = f'{self.__name} {rd}, {rs1}, {addit}'
+                    self.string = f'{self.__name} {rd}, {rs1}, {imm}'
 
             case "S":
                 rs1 = self.register_by_ABI(self.__values['rs1'])
                 rs2 = self.register_by_ABI(self.__values['rs2'])
-                imm = self.additional_to_2(self.__values['imm115'] + self.__values['imm4'])
+                imm115 = self.__values['imm115']  # imm[11:5]
+                imm4 = self.__values['imm4']  # imm[4:0]
+                imm = self.additional_to_2(fm.IMMS_UMCOMPRESS['S'](imm115, imm4))
                 self.string = f'{self.__name} {rs2}, {rs1}({imm})'
 
+            case "B":
+                rs1 = self.register_by_ABI(self.__values['rs1'])
+                rs2 = self.register_by_ABI(self.__values['rs2'])
+                imm12105 = self.__values['imm12105']  # imm[12|10:5]
+                imm4111 = self.__values['imm4111']  # imm[4:1|11]
+                imm = self.additional_to_2(fm.IMMS_UMCOMPRESS['B'](imm12105, imm4111))
+
+                addr_point = self.addr + imm
+                self._points.update({addr_point: ''})
+                self.end = f'LOC_{addr_point:05x}'
+
+                self.string = f'{self.__name} {rs1}, {rs2}, {imm}'
+
+            case "U":
+                rd = self.register_by_ABI(self.__values['rd'])
+                imm = self.additional_to_2(fm.IMMS_UMCOMPRESS['U'](self.__values['imm3112']))
+                self.string = f'{self.__name} {rd}, {imm}'
+
+            case "J":
+                rd = self.register_by_ABI(self.__values['rd'])
+                imm = self.additional_to_2(fm.IMMS_UMCOMPRESS['J'](self.__values['imm2010']))
+
+                if self.addr + imm in self.symtab:
+                    self.end = self.symtab[self.addr + imm]['name']
+                else:
+                    self.end = f'LOC_{self.addr + imm:05x}'
+                    self._points.update({self.addr + imm: ''})
+                self.string = f'{self.__name} {rd}, {imm}'
+
         return self.string
+
+    def update_points(self):
+        if self.addr in self._points:
+            self._points.pop(self.addr)
+            self.start = f'LOC_{self.addr:05x}  '
+        if self.addr in self.symtab:
+            self.start += f'{self.symtab.pop(self.addr)["name"]}  '
 
     def __get_name(self):
         suitable_rows = []
@@ -301,17 +374,17 @@ class CommandUncompress(Command):
             return
 
         for row in suitable_rows:
-            print(row)
-            match self.__type:
-                case "R":
-                    if row['funct3'] == self.__values['funct3'] and row['funct7'] == self.__values['funct7']:
+            match self.__values:
+                case {'funct3': funct3, "funct7": funct7}:
+                    if funct3 == row['funct3'] and funct7 == row['funct7']:
                         self.__name = row['name']
                         break
-                case 'I' | 'S' | 'B':
-                    if row['funct3'] == self.__values['funct3']:
+                case {'funct3': funct3}:
+                    if funct3 == row['funct3']:
                         self.__name = row['name']
                         break
         else:
+            print(self.__type, self.__values)
             raise 'Не удалось найти функцию'
 
     def __str__(self):

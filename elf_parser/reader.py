@@ -2,7 +2,7 @@ from pprint import pprint
 
 from elf_parser import config as fm
 from elf_parser.exceptions import *
-from elf_parser.elf_obj import Elf32, CommandsBase
+from elf_parser.elf_obj import Elf32, CommandsBase, Command
 
 
 def normalize_bytes(_bytes):
@@ -27,7 +27,7 @@ def matcher(_bytes, match):
 
 
 @check_elf_reader_exception
-def read(data, _type='from_file'):
+def read(data, _type='from_file') -> Elf32:
     if _type == 'from_file':
         with open(data, 'rb') as elf_file:
             _bytes = elf_file.read()
