@@ -1,13 +1,10 @@
 from elf_parser.reader import read
-
 import sys
-
 
 
 def main(input_path, output_path):
     with open(input_path, 'rb') as elf_file:
         _bytes = elf_file.read()
-
     elf = read(_bytes, _type = 'from_bytes')
 
     # out = elf.to_string(param = 'header')

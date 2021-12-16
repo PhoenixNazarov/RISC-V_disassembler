@@ -46,6 +46,9 @@ class Elf32:
                     val = int(ii[1], 16)
                 if ii[0] == 'PARSE_NAME':
                     name = ii[1]
+            if val in out:
+                print('position with like value have already in .symtab')
+                continue
             out.update({val: {'name': name}})
         Command.symtab = out
 
@@ -261,19 +264,6 @@ class Command:
             case _:
                 raise 'branch_jump_out_type in settings.py set incorrect'
 
-    def frm(self, _type, *args):
-        match _type:
-            case "b_j":
-                if st.branch_jump_out_type == 'addr_hex':
-                    return f'{args[0]:08x}'
-                elif st.branch_jump_out_type == 'offset_dec':
-                    return f'{args[1]}'
-                elif st.branch_jump_out_type == 'addr_dec':
-                    return f'{args[0]}'
-                else:
-                    raise 'branch_jump_type_out in settings.py set incorrect'
-
-
     def scenario(self):
         raise "Эта функция должна быть переопределена"
 
@@ -360,20 +350,17 @@ class CommandUncompress(Command):
             self.__values.update({i[0]: i[1][::-1]})
 
     def collect_data(self):
-        if self.__opcode == fm.csr_opcode:
-            funct3 = self.__values['funct3']
+        if self.__name.startswith('csr'):
             rd = self.register_by_ABI(self.__values['rd'])
-            rs1 = self.register_by_ABI(self.__values['rs1'])
             csr = self.register_for_csr(self.__values["imm11"])
-            self.string = f'{self.__name} {rd}, {csr}, {rs1}'
-            if self._bits == '0' * 32:
-                self.string = st.rvc_illegal_instruction
-            # match funct3:
-            #     case '010':
-            #         self.string = f'{self.__name} {rd}, {csr}'
-            #     case _:
-            #         self.string = f'{self.__name} {rd}, {rs1}, {csr}'
+            if self.__name.endswith('i'):
+                uimm = self.additional_to_2(self.__values['rs1'])
+                self.string = f'{self.__name} {rd}, {csr}, {uimm}'
+            else:
+                rs1 = self.register_by_ABI(self.__values['rs1'])
+                self.string = f'{self.__name} {rd}, {csr}, {rs1}'
             return
+
         match self.__type:
             case "R":
                 rd = self.register_by_ABI(self.__values['rd'])
@@ -412,37 +399,20 @@ class CommandUncompress(Command):
                 imm12105 = self.__values['imm12105']  # imm[12|10:5]
                 imm4111 = self.__values['imm4111']  # imm[4:1|11]
                 imm = self.additional_to_2(fm.IMMS_UMCOMPRESS['B'](imm12105, imm4111))
-
-                # addr_point = self.addr + imm
-                # if addr_point in self.symtab:
-                #     print('b_in')
-                #     self.end = self.symtab[addr_point]['name']
-                # else:
-                #     print('b_else')
-                #     self.end = f'LOC_{addr_point:05x}'
-
                 self.string = f'{self.__name} {rs1}, {rs2}, {self.jump(imm)}'
 
             case "U":
                 rd = self.register_by_ABI(self.__values['rd'])
-                imm = self.additional_to_2(fm.IMMS_UMCOMPRESS['U'](self.__values['imm3112']))
+                imm = fm.IMMS_UMCOMPRESS['U'](self.__values['imm3112'])
                 if not st.u_imm_dec_type:
-                    imm = hex(imm)
-
+                    imm = f'0x{int(imm, 2):x}'
+                else:
+                    imm = self.additional_to_2(imm)
                 self.string = f'{self.__name} {rd}, {imm}'
 
             case "J":
                 rd = self.register_by_ABI(self.__values['rd'])
                 imm = self.additional_to_2(fm.IMMS_UMCOMPRESS['J'](self.__values['imm2010']))
-                # addr_point = self.addr + imm
-                #
-                # if addr_point in self.symtab:
-                #     print('j in')
-                #     self.end = self.symtab[addr_point]['name']
-                # else:
-                #     print('j else')
-                #     self.end = f'LOC_{addr_point:05x}'
-                #     self._points.update({addr_point: ''})
                 self.string = f'{self.__name} {rd}, {self.jump(imm)}'
 
             case _:

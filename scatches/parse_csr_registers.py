@@ -79,5 +79,7 @@ g = {}
 for i in a.split('\n')[1:-1]:
     b = i.split(' ')
     key, name = b[0], b[2]
+    if key in g:
+        print(key)
     g.update({key: name})
 print(g)

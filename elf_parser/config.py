@@ -178,7 +178,7 @@ IMMS_UMCOMPRESS = {
     "I": lambda i: i,
     "S": lambda i, i2: i + i2,
     "B": lambda i, i2: i[0] + i2[-1] + i[1:] + i2[0:-1] + '0',
-    "U": lambda i: i + '0' * 12,
+    "U": lambda i: i,
     "J": lambda i: i[0] + i[-8:] + i[-9] + i[1:-9] + '0'  # imm[20|10:1|11|19:12]
 }
 
