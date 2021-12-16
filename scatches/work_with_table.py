@@ -58,3 +58,29 @@ for i in base_uncompress:
 for i in opcodes_types:
     opcodes_types[i] = set(opcodes_types[i])
 print(opcodes_types)
+
+
+# jal
+
+
+# addi4spn
+# lw
+# reserved
+# sw
+# addi
+# li
+# lui/addi16sp
+
+# misc-alu
+# j
+
+
+# beqz
+# bnez
+
+# slli
+
+# lwsp
+# swsp
+
+# j[al]r/mv/add

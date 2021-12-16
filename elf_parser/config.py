@@ -2,6 +2,15 @@
 # match_* - List with "Index markup" for work with function reader.matcher()
 # *_white_list - List with true data
 
+# SETTINGS
+import settings as st
+settings = {
+    'U_NOTION': st.U_NOTION,
+    'BJ_NOTION': st.BJ_NOTION,
+    'SSS_NOTION': st.SSS_NOTION,
+    'BJ_VAL': st.BJ_VAL,
+    'LOC_VAL': st.LOC_VAL
+}
 
 # HEADER
 match_e_ident = {
@@ -178,7 +187,7 @@ IMMS_UMCOMPRESS = {
     "I": lambda i: i,
     "S": lambda i, i2: i + i2,
     "B": lambda i, i2: i[0] + i2[-1] + i[1:] + i2[0:-1] + '0',
-    "U": lambda i: i,
+    "U": lambda i: i + '0'*12,
     "J": lambda i: i[0] + i[-8:] + i[-9] + i[1:-9] + '0'  # imm[20|10:1|11|19:12]
 }
 
@@ -196,6 +205,18 @@ ABI_REGISTERS = {
     (28, 32): lambda i: "t" + str(i - 28 + 3)
 }
 
+ABI_REGISTERS_compress = {
+    '000': 's0',
+    '001': 's1',
+    '010': 'a0',
+    '011': 'a1',
+    '100': 'a2',
+    '101': 'a3',
+    '110': 'a4',
+    '111': 'a5',
+}
+
+
 # i deadinside
 csr_opcode = '1110011'
 csr_alot_registers = {
@@ -205,16 +226,30 @@ csr_alot_registers = {
     (0x323, 0x33F): lambda i: f'mhpmevent{int(i, 16) - 0x320}'
 
 }
-csr_registers = {'0x000': 'ustatus', '0x004': 'uie', '0x005': 'utvec', '0x040': 'uscratch', '0x041': 'uepc', '0x042': 'ucause', '0x043': 'ubadaddr', '0x044': 'uip', '0x001': 'fflags', '0x002': 'frm', '0x003': 'fcsr', '0xc00': 'cycle', '0xc01': 'time', '0xc02': 'instret', '0xc80': 'cycleh', '0xc81': 'timeh', '0xc82': 'instreth', '0x100': 'sstatus', '0x102': 'sedeleg', '0x103': 'sideleg', '0x104': 'sie', '0x105': 'stvec', '0x140': 'sscratch', '0x141': 'sepc', '0x142': 'scause', '0x143': 'sbadaddr', '0x144': 'sip', '0x180': 'sptbr', '0x200': 'hstatus', '0x202': 'hedeleg', '0x203': 'hideleg', '0x204': 'hie', '0x205': 'htvec', '0x240': 'hscratch', '0x241': 'hepc', '0x242': 'hcause', '0x243': 'hbadaddr', '0x244': 'hip', '0x28x': 'tbd', '0xf11': 'mvendorid', '0xf12': 'marchid', '0xf13': 'mimpid', '0xf14': 'mhartid', '0x300': 'mstatus', '0x301': 'misa', '0x302': 'medeleg', '0x303': 'mideleg', '0x304': 'mie', '0x305': 'mtvec', '0x340': 'mscratch', '0x341': 'mepc', '0x342': 'mcause', '0x343': 'mbadaddr', '0x344': 'mip', '0x380': 'mbase', '0x381': 'mbound', '0x382': 'mibase', '0x383': 'mibound', '0x384': 'mdbase', '0x385': 'mdbound', '0xb00': 'mcycle', '0xb02': 'minstret', '0xb80': 'mcycleh', '0xb82': 'minstreth', '0x320': 'mucounteren', '0x321': 'mscounteren', '0x322': 'mhcounteren', '0x7a0': 'tselect', '0x7a1': 'tdata1', '0x7a2': 'tdata2', '0x7a3': 'tdata3', '0x7b0': 'dcsr', '0x7b1': 'dpc', '0x7b2': 'dscratch'}
-
+csr_registers = {'0x000': 'ustatus', '0x004': 'uie', '0x005': 'utvec', '0x040': 'uscratch', '0x041': 'uepc',
+                 '0x042': 'ucause', '0x043': 'ubadaddr', '0x044': 'uip', '0x001': 'fflags', '0x002': 'frm',
+                 '0x003': 'fcsr', '0xc00': 'cycle', '0xc01': 'time', '0xc02': 'instret', '0xc80': 'cycleh',
+                 '0xc81': 'timeh', '0xc82': 'instreth', '0x100': 'sstatus', '0x102': 'sedeleg', '0x103': 'sideleg',
+                 '0x104': 'sie', '0x105': 'stvec', '0x140': 'sscratch', '0x141': 'sepc', '0x142': 'scause',
+                 '0x143': 'sbadaddr', '0x144': 'sip', '0x180': 'sptbr', '0x200': 'hstatus', '0x202': 'hedeleg',
+                 '0x203': 'hideleg', '0x204': 'hie', '0x205': 'htvec', '0x240': 'hscratch', '0x241': 'hepc',
+                 '0x242': 'hcause', '0x243': 'hbadaddr', '0x244': 'hip', '0x28x': 'tbd', '0xf11': 'mvendorid',
+                 '0xf12': 'marchid', '0xf13': 'mimpid', '0xf14': 'mhartid', '0x300': 'mstatus', '0x301': 'misa',
+                 '0x302': 'medeleg', '0x303': 'mideleg', '0x304': 'mie', '0x305': 'mtvec', '0x340': 'mscratch',
+                 '0x341': 'mepc', '0x342': 'mcause', '0x343': 'mbadaddr', '0x344': 'mip', '0x380': 'mbase',
+                 '0x381': 'mbound', '0x382': 'mibase', '0x383': 'mibound', '0x384': 'mdbase', '0x385': 'mdbound',
+                 '0xb00': 'mcycle', '0xb02': 'minstret', '0xb80': 'mcycleh', '0xb82': 'minstreth',
+                 '0x320': 'mucounteren', '0x321': 'mscounteren', '0x322': 'mhcounteren', '0x7a0': 'tselect',
+                 '0x7a1': 'tdata1', '0x7a2': 'tdata2', '0x7a3': 'tdata3', '0x7b0': 'dcsr', '0x7b1': 'dpc',
+                 '0x7b2': 'dscratch'}
 
 base_uncompress = [
     {'type': 'I', 'opcode': '1110011', 'funct3': '001', 'name': 'csrrw'},
     {'type': 'I', 'opcode': '1110011', 'funct3': '010', 'name': 'csrrs'},
     {'type': 'I', 'opcode': '1110011', 'funct3': '011', 'name': 'csrrc'},
     {'type': 'I', 'opcode': '1110011', 'funct3': '101', 'name': 'csrrwi'},
-    {'type': 'I', 'opcode': '1110011', 'funct3': '110', 'name': 'csrsi'},
-    {'type': 'I', 'opcode': '1110011', 'funct3': '111', 'name': 'csrci'},
+    {'type': 'I', 'opcode': '1110011', 'funct3': '110', 'name': 'csrrsi'},
+    {'type': 'I', 'opcode': '1110011', 'funct3': '111', 'name': 'csrrci'},
     {'type': 'U', 'opcode': '0110111', 'name': 'lui'},
     {'type': 'U', 'opcode': '0010111', 'name': 'auipc'},
     {'type': 'J', 'opcode': '1101111', 'name': 'jal'},
@@ -253,7 +288,7 @@ base_uncompress = [
     {'type': 'R', 'funct3': '110', 'funct7': '0000000', 'opcode': '0110011', 'name': 'or'},
     {'type': 'R', 'funct3': '111', 'funct7': '0000000', 'opcode': '0110011', 'name': 'and'},
     {'type': 'I', 'funct3': '000', 'opcode': '0001111', 'name': 'fence'},
-    {'type': 'I', 'funct3': '000', 'opcode': '1110011', 'name': 'ebreak'},
+    {'type': 'I', 'funct3': '000', 'opcode': '1110011', 'name': 'ecall'},
     {'type': 'I', 'funct3': '000', 'opcode': '1110011', 'name': 'ebreak'},
     {'type': 'R', 'funct3': '000', 'funct7': '0000001', 'opcode': '0110011', 'name': 'mul'},
     {'type': 'R', 'funct3': '001', 'funct7': '0000001', 'opcode': '0110011', 'name': 'mulh'},
@@ -283,26 +318,41 @@ RI_conflict = '0010011'
 funct3_R = ['001', '101']
 funct3_I = ['000', '010', '011', '100', '110', '111']
 
-
 # ECALL EBREAK , CSR
 e_opcode = '1110011'
 
 compress_names = {
-    ('00', '000'): 'addi4spn',
-    ('00', '001'): 'fld',
-    ('00', '010'): 'lw',
-    ('00', '011'): 'flw',
+    ('00', '000'): 'addi4spn',  # 000 nzuimm[5:4|9:6|2|3] rd ′ 00
+    ('00', '010'): 'lw',  # 010 uimm[5:3] rs1 ′ uimm[2|6] rd ′ 00
+    ('00', '011'): 'flw',  # 011 uimm[5:3] rs1 ′ uimm[2|6] rd ′ 00
     ('00', '100'): 'reserved',
-    ('00', '101'): 'fsd',
-    ('00', '110'): 'sw',
-    ('00', '111'): 'fsw',
-    ('01', '000'): 'addi',
-    ('01', '001'): 'jal',
-    ('01', '010'): 'li',
-    ('01', '011'): 'lui/addi16sp',
+    ('00', '101'): 'fsd',  # 101 uimm[5:3] rs1 ′ uimm[7:6] rs2 ′ 00
+    ('00', '110'): 'sw',  # 110 uimm[5:3] rs1 ′ uimm[2|6] rs2 ′ 00
+    ('00', '111'): 'fsw',  # 111 uimm[5:3] rs1 ′ uimm[2|6] rs2 ′ 00
+    ('01', '000'): 'addi',  # 000 nzimm[5] rs1/rd̸=0 nzimm[4:0] 01
+    ('01', '001'): 'jal',  # 001 imm[11|4|9:8|10|6|7|3:1|5] 01
+    ('01', '010'): 'li',  # 010 imm[5] rd̸=0 imm[4:0] 01
+    ('01', '011'): 'lui/addi16sp',  # 011 nzimm[9] 2 nzimm[4|6|8:7|5] 01
+    # 011 nzimm[17] rd̸={0, 2} nzimm[16:12] 01
     ('01', '100'): 'misc-alu',
-    ('01', '101'): 'j',
-    ('01', '110'): 'beqz',
+
+    # 100 nzuimm[5] 00 rs1 ′/rd ′ nzuimm[4:0] 01 C.SRLI (RV32 NSE, nzuimm[5]=1)
+    # 100 0 00 rs1 ′/rd ′ 0 01 C.SRLI64 (RV128; RV32/64 HINT)
+    # 100 nzuimm[5] 01 rs1 ′/rd ′ nzuimm[4:0] 01 C.SRAI (RV32 NSE, nzuimm[5]=1)
+    # 100 0 01 rs1 ′/rd ′ 0 01 C.SRAI64 (RV128; RV32/64 HINT)
+    # 100 imm[5] 10 rs1 ′/rd ′
+    # imm[4:0] 01 C.ANDI
+    # 100 0 11 rs1 ′/rd ′ 00 rs2 ′ 01 C.SUB
+    # 100 0 11 rs1 ′/rd ′ 01 rs2 ′ 01 C.XOR
+    # 100 0 11 rs1 ′/rd ′ 10 rs2 ′ 01 C.OR
+    # 100 0 11 rs1 ′/rd ′ 11 rs2 ′ 01 C.AND
+    # 100 1 11 rs1 ′/rd ′ 00 rs2 ′ 01 C.SUBW (RV64/128; RV32 RES)
+    # 100 1 11 rs1 ′/rd ′ 01 rs2 ′ 01 C.ADDW (RV64/128; RV32 RES)
+    # 100 1 11 — 10 — 01 Reserved
+    # 100 1 11 — 11 — 01 Reserved
+
+    ('01', '101'): 'j',  # 101 imm[11|4|9:8|10|6|7|3:1|5] 01
+    ('01', '110'): 'beqz',  #
     ('01', '111'): 'bnez',
     ('10', '000'): 'slli',
     ('10', '001'): 'fldsp',
@@ -313,16 +363,125 @@ compress_names = {
     ('10', '110'): 'swsp',
     ('10', '111'): 'fswsp'
 }
+
 # 0 1 2 3 4 5 6 7
 # 5 4 9 8 7 6 2 3
-match_compress = {
-    'r42': lambda i: i[-5: -2],
-    'r97': lambda i: i[-10: -7],
-    'r512': lambda i: i[-13: -5],
-    'immasp': lambda i: i
+rvc_match = {
+    'r': lambda bits, i1, i2: bits[-i1 - 1: -i2],
+
+    'nzuimm': lambda i: i[2: 6] + i[:2] + i[-1] + i[-2],
+
+    'uim5326': lambda i: i[-1] + i[:3] + i[-2] + '00',
+
+    'nzimm540': lambda i: i[0] + i[-5:],
+
+    # 0
+    'nzimm17--16:12': lambda i: '1'*14 + i[0] + i[-5:],
+    # 0
+    'nzimm9--4-6-8-7-5': lambda i: i[0] + i[-3] + i[-2] + i[-4] + i[-1] + i[-5],
+
+    # 8 4 3 -- 7 6 2 1 5
+    'imm8-4-3--7-6-2-1-5': lambda i: i[0] + i[-5:-3] + i[-1] + i[1:3] + i[-3:-1] + '0',
+
+    # [4:2|7:6] 4 3 2 7 6
+    'uimm5--4-2-7-6': lambda i: i[-2:] + i[0] + i[-5:-2] + '0'*2,
+
+    #  uimm[5:2|7:6]  5 4 3 2 7 6
+    'uimm5-2-7-6': lambda i: i[4: 6] + i[:4] + '0' * 2
 }
 
+rvc_blocks = {
+    ('nzuimm', 'uim5326'): (12, 5),
+    ('nzimm540', 'nzimm17--16:12',
+     'nzimm9--4-6-8-7-5', 'block_nzimm9--4-6-8-7-5',
+     'block_imm', "uimm5--4-2-7-6",
+     'imm8-4-3--7-6-2-1-5'): (12, 2),
+    ("uimm5-2-7-6"): (12, 7)
+}
 
-formats = {
-    ('sw', 'sh', 'sb'): "{name} {}"
+# Below I will write how much this function bothered me
+rvcsss = {
+    # 4 / 10
+    "addi4spn": {
+        "rd": lambda b: rvc_match['r'](b, 4, 2),
+        "nzuimm": "nzuimm"
+    },
+    # 5 / 10
+    "lw": {
+        "rd": lambda b: rvc_match['r'](b, 4, 2),
+        "rs1": lambda b: rvc_match['r'](b, 9, 7),
+        "uimm5326": 'uim5326'
+    },
+    # 5 / 10
+    "sw": {
+        "rs2": lambda b: rvc_match['r'](b, 4, 2),
+        "rs1": lambda b: rvc_match['r'](b, 9, 7),
+        "uimm5326": 'uim5326'
+    },
+    # 2 / 10
+    "addi": {
+        "_r": lambda b: rvc_match['r'](b, 11, 7),
+        "nzimm540": "nzimm540"
+    },
+    # 2 / 10
+    "li": {
+        "_rd": lambda b: rvc_match['r'](b, 11, 7),
+        "imm": "nzimm540"
+    },
+    # 6 / 10
+    "lui": {
+        "_rd": lambda b: rvc_match['r'](b, 11, 7),
+        "nzimm": "nzimm17--16:12",
+    },
+    # 7 / 10
+    "addi16sp": {
+        "_rd": lambda b: rvc_match['r'](b, 11, 7),
+        'block_nzimm9--4-6-8-7-5': lambda i: i[0] + i[-3] + i[-2] + i[-4] + i[-1] + i[-5],
+    },
+    # what is it?
+    "j": {
+        # 11 4 9 8 10 6 7 3 2 1 5
+        # 0 1  2 3 4  5 6 7 8 9 10
+        # 11    10     9 8      7      6       5     4      3:1 wow
+        "block_imm": lambda i: i[0] + i[4] + i[2:4] + i[6] + i[5] + i[-1] + i[1] + i[7: 10] + '0'
+    },
+    "beqz": {
+        "rs1": lambda b: rvc_match['r'](b, 9, 7),
+        'imm': 'imm8-4-3--7-6-2-1-5',
+    },
+    'bnez': {
+        "rs1": lambda b: rvc_match['r'](b, 9, 7),
+        'imm': 'imm8-4-3--7-6-2-1-5',
+    },
+    'slli': {
+        '_r': lambda b: rvc_match['r'](b, 11, 7),
+        'nzuim': 'nzimm540'
+    },
+    'lwsp': {
+        '_rd': lambda b: rvc_match['r'](b, 11, 7),
+        'uimm': 'uimm5--4-2-7-6'
+    },
+
+    # nice
+    'swsp': {
+        '_rs2': lambda b: rvc_match['r'](b, 6, 2),
+        'uimm': 'uimm5-2-7-6'
+    },
+
+    'j[al]r/mv/add': {
+        'code1': lambda b: rvc_match['r'](b, 12, 12),
+        'code2': lambda b: rvc_match['r'](b, 11, 7),
+        'code3': lambda b: rvc_match['r'](b, 6, 2),
+    },
+
+    # idk
+    "misc-alu": {
+        "rs": lambda b: rvc_match['r'](b, 9, 7),
+        "code1": lambda b: rvc_match['r'](b, 12, 12),
+        "code2": lambda b: rvc_match['r'](b, 11, 10),
+        "code3": lambda b: rvc_match['r'](b, 6, 5),
+        "rs2": lambda b: rvc_match['r'](b, 4, 2),
+        "imm": lambda b: rvc_match['r'](b, 6, 2),
+    },
+
 }

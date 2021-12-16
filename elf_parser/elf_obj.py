@@ -1,9 +1,12 @@
 from pprint import pformat
+from functools import wraps
 
+from elf_parser.exceptions import *
 from elf_parser import config as fm
 import settings as st
 
 
+@check_global_funct
 class Elf32:
     def __init__(self):
         self.__headers = {}
@@ -18,6 +21,7 @@ class Elf32:
             out = dict(self.__headers)[name]
 
         if out == '':
+            print(f'{name} {place} the program could not find the specified parameters')
             raise ValueError
 
         match form_out:
@@ -41,14 +45,20 @@ class Elf32:
     def get_symtab_for_command(self):
         out = {}
         for i in self.__symtab:
+            val, name = None, None
             for ii in i:
                 if ii[0] == 'VALUE':
                     val = int(ii[1], 16)
                 if ii[0] == 'PARSE_NAME':
                     name = ii[1]
-            if val in out:
-                print('position with like value have already in .symtab')
+
+            if val is None or name is None:
+                print('one row in symtab is broken')
                 continue
+
+            # if val in out:
+            #     print('hm', val, name)
+            #     continue
             out.update({val: {'name': name}})
         Command.symtab = out
 
@@ -100,7 +110,7 @@ class Elf32:
             case "symtab":
                 return '.symtab\n' + self.__symtab_to_string()
             case "commands":
-                return st.name_section_of_riscv+'\n' + self.__commands_to_string()
+                return st.name_section_of_riscv + '\n' + self.__commands_to_string()
             case "to_test":
                 out = st.name_section_of_riscv + '\n'
                 out += self.__commands_to_string()
@@ -144,24 +154,37 @@ class CommandsBase:
         self.__commands.append(command)
 
     def to_string(self, _format):
+        _error = [0]
+
+        def checker(func):
+            try:
+                return func()
+            except Exception as e:
+                print(e)
+                _error[0] += 1
+                return None
+
         for i in self.__commands:
-            i.collect_data()
+            checker(i.collect_data)
         for i in self.__commands:
-            i.update_points()
+            checker(i.update_points)
 
         string = ''
         for i in self.__commands:
-            string += _format.format(
-                *i.take_var_to_format()
-            )
+            values = checker(i.take_var_to_format)
+            if values is None:
+                string += 'exception on this row\n'
+                continue
+            string += _format.format(*values)
 
+        print(f'complete parse command with {_error} errors')
         return string
 
 
 class Command:
     _points = {}
     symtab = {}
-    cur_point = 0
+    cur_point = [-1]
 
     def __init__(self, _bytes, addr):
         self._bits = self.bytes_to_bites(_bytes)
@@ -191,6 +214,7 @@ class Command:
         return True
 
     @staticmethod
+    @replace_unknown_data('0' * 32)
     def matcher(_bites, match):
         out = []
         for indexes, name in match.items():
@@ -199,31 +223,31 @@ class Command:
         return out
 
     @staticmethod
-    def register_by_ABI(rd):
+    @replace_unknown_data('unknown_abi')
+    def register_by_ABI(rd, compress=False):
+        if compress:
+            if rd in fm.ABI_REGISTERS_compress:
+                return fm.ABI_REGISTERS_compress[rd]
+            return 'unknown_copmpress_abi_' + rd
         if type(rd) == type(''):
             rd = int(rd, 2)
+
         for indexes, value in fm.ABI_REGISTERS.items():
             if indexes[0] <= rd < indexes[1]:
                 if type(value) == type(lambda: 1):
                     return value(rd)
                 elif type(value) == type(''):
                     return value
-                else:
-                    raise "Внутренняя ошибка"
         return 'unknown_abi'
 
     @staticmethod
+    @replace_unknown_data('unknown_csr')
     def register_for_csr(csr):
-        # for p1, p2 in fm.csr_alot_registers.keys():
-        #     print(p1, int(csr, 2), p2)
-        #     if p1 <= int(csr, 2) <= p2:
-        #         print('ok')
-        is_alot =  [p1 <= int(csr, 2) <= p2 for p1, p2 in fm.csr_alot_registers.keys()]
+        is_alot = [p1 <= int(csr, 2) <= p2 for p1, p2 in fm.csr_alot_registers.keys()]
         if any(is_alot):
             return list(fm.csr_alot_registers.values())[is_alot.index(1)]
         if f"0x{(int(csr, 2)):03x}" in fm.csr_registers:
             return fm.csr_registers[f"0x{(int(csr, 2)):03x}"]
-        print(csr)
         return 'unknown_csr'
 
     @staticmethod
@@ -232,72 +256,202 @@ class Command:
             return int(bits, 2)
         return -int(''.join(map(str, [int((not int(i))) for i in bits[1:]])), 2) - 1
 
+    def cal_with_settings(self, name, val):
+        match name, fm.settings[name]:
+            case 'U_NOTION' | "BJ_NOTION", 'hex':
+                return f'0x{int(val, 2):x}'
+            case 'U_NOTION' | "BJ_NOTION", 'dec':
+                if type(val) != int:
+                    return self.additional_to_2(val)
+                return val
+            case 'SSS_NOTION', 'hex':
+                return hex(int(val, 2))
+            case 'SSS_NOTION', 'dec':
+                if type(val) != int:
+                    return int(val, 2)
+                return val
+
+            case "BJ_VAL", "addr":
+                return self.cal_with_settings("BJ_NOTION", self.addr + val)
+            case "BJ_VAL", "offset":
+                return self.cal_with_settings("BJ_NOTION", val)
+
+            case "LOC_VAL", 'addr':
+                return f'LOC_{val:05x}'
+            case "LOC_VAL", 'count':
+                self.cur_point[0] += 1
+                return f'LOC_{self.cur_point[0]:05x}'
+
+            case _:
+                raise "new_lock_name_type in settings.py set incorrect"
+
     def update_points(self):
         if self.addr in self._points:
-            self.start = f'{self._points.pop(self.addr)["name"]}  '
+            self.start = f'{self._points.pop(self.addr)["name"]}:  '
         if self.addr in self.symtab:
-            self.start += f'{self.symtab.pop(self.addr)["name"]}  '
+            self.start += f'{self.symtab.pop(self.addr)["name"]}:  '
 
     def jump(self, offset):
         addr_point = self.addr + offset
         if addr_point in self.symtab:
             self.end = self.symtab[addr_point]['name']
         else:
-            match st.new_lock_name_type:
-                case 'addr':
-                    loc_name = f'LOC_{addr_point:05x}'
-                case 'count':
-                    loc_name = f'LOC_{self.cur_point:05x}'
-                    self.cur_point += 1
-                case _: raise "new_lock_name_type in settings.py set incorrect"
-
+            loc_name = self.cal_with_settings("LOC_VAL", addr_point)
             self.end = loc_name
             self._points.update({addr_point: {'name': loc_name}})
 
-        match st.branch_jump_out_type:
-            case 'addr_hex':
-                return f'{addr_point:08x}'
-            case 'offset_dec':
-                return f'{offset}'
-            case 'addr_dec':
-                return f'{addr_point}'
-            case _:
-                raise 'branch_jump_out_type in settings.py set incorrect'
+        return self.cal_with_settings("BJ_VAL", offset)
 
     def scenario(self):
-        raise "Эта функция должна быть переопределена"
+        raise "This function needs to be overridden"
 
     def collect_data(self):
-        raise "Эта функция должна быть переопределена"
+        raise "This function needs to be overridden"
 
 
 class CommandCompress(Command):
     def scenario(self):
         self.__name = ''
         self.__first_code = ''
+        self.__values = {}
 
         self.__get_name()
+        self.__match_data()
 
+    @replace_unknown_data('unknown_name')
     def __get_name(self):
         self.__first_code = self._bits[-2:]
         second_code = self._bits[:3]
 
         if self._bits == '0' * 16:
-            self.__name = 'unimp'
+            self.__name = st.rvc_illegal_instruction
+            return
+
         elif (self.__first_code, second_code) in fm.compress_names:
             self.__name = fm.compress_names[(self.__first_code, second_code)]
 
-    def collect_data(self):
-        if self.__name in ['unimp']:
-            self.string = 'unimp'
+    def __get_match_block(self, v):
+        for i in fm.rvc_blocks:
+            if v in i:
+                return fm.rvc_match['r'](self._bits, fm.rvc_blocks[i][0], fm.rvc_blocks[i][1])
+        else:
+            raise v
+
+    def __match_data(self):
+        if self.__name == 'lui/addi16sp':
+            if int(fm.rvc_match['r'](self._bits, 11, 7), 2) == 2:
+                self.__name = 'addi16sp'
+            else:
+                self.__name = 'lui'
+
+        for cmd in fm.rvcsss:
+            if cmd == self.__name:
+                f_vars = fm.rvcsss[cmd]
+                break
+        else:
             return
 
-        match self.__first_code:
-            case '00':
-                rd = fm.match_compress['r42']
-                rs1 = fm.match_compress['r97']
-                if self.__name == 'addi4spn':
-                    self.string = f'{self.__name}'
+        for v in f_vars:
+            if v.startswith('block'):
+                val = f_vars[v](self.__get_match_block(v))
+            elif type(f_vars[v]) == type(''):
+                bloc_pos = self.__get_match_block(f_vars[v])
+                val = fm.rvc_match[f_vars[v]](bloc_pos)
+            else:
+                val = f_vars[v](self._bits)
+            self.__values.update({v: val})
+
+    def collect_data(self):
+        # ABI
+        for i in self.__values:
+            if i.startswith('r'):
+                self.__values[i] = self.register_by_ABI(self.__values[i], compress = True)
+            elif i.startswith('_r'):
+                if self.__name == 'lwsp':
+                    if int(self.__values[i], 2) == '0':
+                        self.__name = st.unknown_rvc
+                        break
+                self.__values[i] = self.register_by_ABI(self.__values[i])
+
+        match self.__name:
+            case st.rvc_illegal_instruction:
+                pass
+            case "addi4spn":
+                nzuimm = int((self.__values["nzuimm"]), 2) * 4
+                self.string = f'{self.__values["rd"]}, sp, {nzuimm}'
+            case "lw" | "sw" as nm:
+                sp = self.__values["rs1"]
+                if nm == 'lw':
+                    fp = self.__values["rd"]
+                else:
+                    fp = self.__values["rs2"]
+                imm = self.additional_to_2(self.__values["uimm5326"])
+                self.string = f'{fp}, {imm}({sp})'
+            case "addi":
+                imm = int(self.__values["nzimm540"], 2)
+                if imm == 0:
+                    self.__name = 'nop'
+                else:
+                    self.string = f'{self.__values["_r"]}, {self.__values["_r"]}, {imm}'
+            case "li":
+                imm = self.additional_to_2(self.__values["imm"])
+                self.string = f'{self.__values["_rd"]}, {imm}'
+            case "lui":
+                imm = int(self.__values["nzimm"], 2)
+                self.string = f'{self.__values["_rd"]}, {imm}'
+            case "addi16sp":
+                nzuimm = int(self.__values["block_nzimm9--4-6-8-7-5"], 2) * 16
+                self.string = f'{self.__values["_rd"]}, sp, {nzuimm}'
+            case "j":
+                block_imm = self.additional_to_2(self.__values["block_imm"])
+                self.string = f'{self.jump(block_imm)}'
+            case "beqz" | "bnez":
+                block_imm = self.additional_to_2(self.__values["imm"])
+                self.string = f'{self.__values["rs1"]}, {self.jump(block_imm)}'
+            case "slli":
+                imm = hex(int(self.__values["nzuim"], 2))
+                self.string = f'{self.__values["_r"]}, {imm}'
+            case "lwsp":
+                imm = int(self.__values['uimm'], 2)
+                self.string = f'{self.__values["_rd"]}, {imm}(sp)'
+            case "swsp":
+                imm = int(self.__values['uimm'], 2)
+                self.string = f'{self.__values["_rs2"]}, {imm}(sp)'
+            case "j[al]r/mv/add":
+                match self.__values['code1'], self.__values['code2'], self.__values['code3']:
+                    case '0' | '1' as c1, rs1, '00000':
+                        if c1 == '0':
+                            self.__name = 'jr'
+                        else:
+                            self.__name = 'jalr'
+                        self.string = f'{self.register_by_ABI(rs1)}'
+                    case '0', rd, rs2:
+                        self.__name = 'mv'
+                        self.string = f'{self.register_by_ABI(rd)} {self.register_by_ABI(rs2)}'
+                    case '1', '00000', '00000':
+                        self.__name = 'ebreak'
+                    case '1', r, rs2:
+                        self.__name = 'add'
+                        r = self.register_by_ABI(r)
+                        self.string = f'{r}, {r}, {self.register_by_ABI(rs2)}'
+                    case _:
+                        self.__name = st.unknown_rvc
+            case "misc-alu":
+                sv = self.__values
+                match sv['rs'], sv['code1'], sv['code2'], sv['code3'], sv['rs2'], sv['imm']:
+                    case rs, '0', '11', '00' | '01' | '10' | '11' as cd, rs2, _:
+                        self.__name = ['sub', 'xor', 'or', 'and'][int(cd, 2)]
+                        self.string = f'{rs}, {rs}, {rs2}'
+
+                    case rs, im5, '10', _, _, im4:
+                        self.__name = 'andi'
+                        self.string = f'{rs}, {rs}, {self.additional_to_2(im5 + im4)}'
+                    case _:
+                        self.__name = st.unknown_rvc
+            case _:
+                self.__name = st.unknown_rvc
+
+        self.string = st.rvc_prefix + f'{self.__name} ' + self.string
 
 
 class CommandUncompress(Command):
@@ -307,41 +461,38 @@ class CommandUncompress(Command):
         self.__values = {}
         self.__name = ''
 
-        self.__get_type()
+        self.__type = self.__get_type()
         if self.__type == -1:
             return
         self.__match_data()
         self.__get_name()
 
+    @replace_unknown_data('unknown_type')
     def __get_type(self):
         match self.__opcode:
             case fm.RI_conflict:
                 funct3 = self._bits[::-1][12: 15][::-1]
                 if funct3 in fm.funct3_R:
-                    self.__type = 'R'
+                    return 'R'
                 else:
-                    self.__type = 'I'
+                    return 'I'
 
             case fm.e_opcode:
                 funct3 = self._bits[::-1][12: 15][::-1]
                 if funct3 == '000':
-                    self.__type = 'I'
+                    return 'I'
                 else:
-                    self.__type = 'I'
+                    return 'I'
 
             case _:
                 find = 0
                 for type_name, opcodes in fm.opcodes_type.items():
                     if self.__opcode in opcodes:
                         find += 1
-                        self.__type = type_name
-                # print(self.__opcode)
-                if self.__opcode == '1110011':
-                    print(find)
+                        return type_name
 
                 if find != 1:
-                    self.__type = -1
-                    # raise "Не удалось определить type для команды " + self.__opcode
+                    return -1
 
     def __match_data(self):
         format_parse = fm.match_uncompress_command[self.__type]
@@ -367,7 +518,7 @@ class CommandUncompress(Command):
                 rs1 = self.register_by_ABI(self.__values['rs1'])
                 rs2 = self.register_by_ABI(self.__values['rs2'])
                 if self.__name in fm.R_type_except:
-                    rs2 = hex(int(self.__values['rs2'], 2))
+                    rs2 = self.cal_with_settings("SSS_NOTION", self.__values['rs2'])
                     self.string = f'{self.__name} {rd}, {rs1}, {rs2}'
                 else:
                     self.string = f'{self.__name} {rd}, {rs1}, {rs2}'
@@ -381,7 +532,12 @@ class CommandUncompress(Command):
                 elif self.__name in fm.I_type_except:
                     self.string = f'{self.__name} {rd}, {imm}({rs1})'
                 elif self.__name in fm.I_control:
-                    self.string = f'{self.__name}'
+                    if self.__opcode == '0001111':
+                        self.string = f'fence'
+                    elif self._bits.startswith('00000000000000'):
+                        self.string = f'{self.__name}'
+                    else:
+                        self.string = f'ecall'
                 else:
                     self.string = f'{self.__name} {rd}, {rs1}, {imm}'
 
@@ -404,10 +560,7 @@ class CommandUncompress(Command):
             case "U":
                 rd = self.register_by_ABI(self.__values['rd'])
                 imm = fm.IMMS_UMCOMPRESS['U'](self.__values['imm3112'])
-                if not st.u_imm_dec_type:
-                    imm = f'0x{int(imm, 2):x}'
-                else:
-                    imm = self.additional_to_2(imm)
+                imm = self.cal_with_settings('U_NOTION', imm)
                 self.string = f'{self.__name} {rd}, {imm}'
 
             case "J":
@@ -416,7 +569,7 @@ class CommandUncompress(Command):
                 self.string = f'{self.__name} {rd}, {self.jump(imm)}'
 
             case _:
-                self.string = 'unknown_command'
+                self.string = st.unknown
 
         return self.string
 

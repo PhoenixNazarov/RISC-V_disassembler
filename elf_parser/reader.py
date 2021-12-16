@@ -1,11 +1,10 @@
-from pprint import pprint
-
 import settings as st
 from elf_parser import config as fm
 from elf_parser.exceptions import *
 from elf_parser.elf_obj import Elf32, CommandsBase, Command
 
 
+@check_algorithms
 def normalize_bytes(_bytes):
     hex_string = '0x'
     for byte in _bytes[::-1]:
@@ -14,11 +13,14 @@ def normalize_bytes(_bytes):
     return hex_string
 
 
+@check_algorithms
 def bytes_to_string(_bytes):
     return ''.join([chr(int(i, 16)) for i in _bytes])
 
 
+@check_algorithms
 def matcher(_bytes, match):
+    """parse elf headers, sections"""
     out = []
     for indexes, name in match.items():
         value = normalize_bytes(_bytes[indexes[0]: indexes[1]])
@@ -27,16 +29,18 @@ def matcher(_bytes, match):
     return out
 
 
-@check_elf_reader_exception
+@check_exception
+def open_file(path):
+    with open(path, 'rb') as elf_file:
+        _bytes = elf_file.read()
+        _bytes = [hex(byte) for byte in _bytes]
+
+
+@check_global_funct
 def read(data, _type='from_file') -> Elf32:
     if _type == 'from_file':
-        with open(data, 'rb') as elf_file:
-            _bytes = elf_file.read()
-            _bytes = [hex(byte) for byte in _bytes]
-    elif _type == 'from_bytes':
-        _bytes = [hex(byte) for byte in data]
-    else:
-        raise "Incorrect value"
+        data = open_file(data)
+    _bytes = [hex(byte) for byte in data]
 
     # Parse Header
     elf = Elf32()
@@ -61,17 +65,11 @@ def read(data, _type='from_file') -> Elf32:
     elf.add_symtab(symtab_table)
 
     # Parse Text
-    name_table = st.name_section_of_riscv
-    text_section = elf.get_section_by_name(name_table)
-    text_section_start_ind = int(text_section['SH_OFFSET'], 16)
-    text_section_size = int(text_section['SH_SIZE'], 16)
-
-    _bytes_text = _bytes[text_section_start_ind: text_section_start_ind + text_section_size]
-    commands = CommandsBase(_bytes_text, int(text_section['SH_ADDR'], 16))
-    elf.add_command(commands)
+    parse_text(elf, _bytes)
     return elf
 
 
+@check_exception
 def parse_header(_bytes):
     e_ident = list(zip(fm.match_e_ident.keys(), _bytes[:16]))
 
@@ -82,18 +80,20 @@ def parse_header(_bytes):
     return header
 
 
+@check_exception
 def check_header(header: dict):
     for name, accept_value in \
             (fm.match_header_white_list | fm.match_e_ident).items():
         if accept_value and int(header[name], 16) not in accept_value:
-            raise Incorrect_Data(name, header[name])
+            raise IncorrectData(name, header[name])
 
         # kludge
         if name == 'E_SHENTSIZE':
             if int(header[name], 16) != 0x28:
-                raise
+                raise IncorrectData(name, header[name])
 
 
+@check_exception
 def parse_sections(_bytes, E_SHNUM):
     sections = []
     for i in range(E_SHNUM):
@@ -101,6 +101,7 @@ def parse_sections(_bytes, E_SHNUM):
     return sections
 
 
+@check_exception
 def parse_section_name(_bytes, offsets):
     names = []
     for off in offsets:
@@ -111,8 +112,21 @@ def parse_section_name(_bytes, offsets):
     return names
 
 
+@check_exception
 def parse_symtab(_bytes, count):
     symtabs = []
     for i in range(count):
         symtabs.append(matcher(_bytes[16 * i:], fm.match_symtab))
     return symtabs
+
+
+@check_exception
+def parse_text(elf, _bytes):
+    name_table = st.name_section_of_riscv
+    text_section = elf.get_section_by_name(name_table)
+    text_section_start_ind = int(text_section['SH_OFFSET'], 16)
+    text_section_size = int(text_section['SH_SIZE'], 16)
+
+    _bytes_text = _bytes[text_section_start_ind: text_section_start_ind + text_section_size]
+    commands = CommandsBase(_bytes_text, int(text_section['SH_ADDR'], 16))
+    elf.add_command(commands)

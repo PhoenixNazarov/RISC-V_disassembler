@@ -1,0 +1,219 @@
+.text
+80000000     _start: jal zero, reset_vector
+80000004 trap_vector: csrrs t5, mcause, zero
+80000008             addi t6, zero, 8
+8000000c             beq t5, t6, write_tohost
+80000010             addi t6, zero, 9
+80000014             beq t5, t6, write_tohost
+80000018             addi t6, zero, 11
+8000001c             beq t5, t6, write_tohost
+80000020             auipc t5, 0
+80000024             addi t5, t5, 584
+80000028             beq t5, zero, LOC_00000
+8000002c             jalr zero, 0(t5)
+80000030  LOC_00000: csrrs t5, mcause, zero
+80000034             bge t5, zero, other_exception
+80000038             jal zero, other_exception
+8000003c other_exception: ori gp, gp, 1337
+80000040 write_tohost: auipc t5, 4096
+80000044             sw gp, -64(t5)
+80000048             jal zero, write_tohost
+8000004c reset_vector: csrrs a0, mhartid, zero
+80000050  LOC_00001: bne a0, zero, LOC_00001
+80000054             auipc t0, 0
+80000058             addi t0, t0, 16
+8000005c             csrrw zero, mtvec, t0
+80000060             csrrwi zero, sptbr, 0
+80000064             auipc t0, 0
+80000068             addi t0, t0, 28
+8000006c             csrrw zero, mtvec, t0
+80000070             addi t0, zero, -1
+80000074             Not Implemented
+80000078             addi t0, zero, 31
+8000007c             Not Implemented
+80000080             auipc t0, 0
+80000084             addi t0, t0, 24
+80000088             csrrw zero, mtvec, t0
+8000008c             csrrwi zero, medeleg, 0
+80000090             csrrwi zero, mideleg, 0
+80000094             csrrwi zero, mie, 0
+80000098             addi gp, zero, 0
+8000009c             auipc t0, 0
+800000a0             addi t0, t0, -152
+800000a4             csrrw zero, mtvec, t0
+800000a8             addi a0, zero, 1
+800000ac             slli a0, a0, 31
+800000b0             blt a0, zero, LOC_00002
+800000b4             Not Implemented
+800000b8             addi gp, zero, 1
+800000bc             ecall
+800000c0  LOC_00002: auipc t0, 2147483648
+800000c4             addi t0, t0, -192
+800000c8             beq t0, zero, LOC_00003
+800000cc             csrrw zero, stvec, t0
+800000d0             lui t0, 45056
+800000d4             addi t0, t0, 265
+800000d8             csrrw zero, medeleg, t0
+800000dc             csrrs t1, medeleg, zero
+800000e0             bne t0, t1, other_exception
+800000e4  LOC_00003: csrrwi zero, mstatus, 0
+800000e8             lui a0, 8192
+800000ec             addi a0, a0, -2048
+800000f0             csrrs zero, mstatus, a0
+800000f4             auipc t0, 0
+800000f8             addi t0, t0, 20
+800000fc             csrrw zero, mepc, t0
+80000100             csrrs a0, mhartid, zero
+80000104             ecall
+80000108             csrrwi zero, mscratch, 3
+8000010c     test_2: csrrs a0, mscratch, zero
+80000110             addi t4, zero, 3
+80000114             addi gp, zero, 2
+80000118             bne a0, t4, fail
+8000011c     test_3: csrrci a1, mscratch, 1
+80000120             addi t4, zero, 3
+80000124             addi gp, zero, 3
+80000128             bne a1, t4, fail
+8000012c     test_4: csrrsi a2, mscratch, 4
+80000130             addi t4, zero, 2
+80000134             addi gp, zero, 4
+80000138             bne a2, t4, fail
+8000013c     test_5: csrrwi a3, mscratch, 2
+80000140             addi t4, zero, 6
+80000144             addi gp, zero, 5
+80000148             bne a3, t4, fail
+8000014c     test_6: lui a0, 195895296
+80000150             addi a0, a0, -534
+80000154             csrrw a1, mscratch, a0
+80000158             addi t4, zero, 2
+8000015c             addi gp, zero, 6
+80000160             bne a1, t4, fail
+80000164     test_7: lui a0, 8192
+80000168             addi a0, a0, -534
+8000016c             csrrc a0, mscratch, a0
+80000170             lui t4, 195895296
+80000174             addi t4, t4, -534
+80000178             addi gp, zero, 7
+8000017c             bne a0, t4, fail
+80000180     test_8: lui a0, 49152
+80000184             addi a0, a0, -273
+80000188             csrrs a0, mscratch, a0
+8000018c             lui t4, 195887104
+80000190             addi gp, zero, 8
+80000194             bne a0, t4, fail
+80000198     test_9: csrrs a0, mscratch, zero
+8000019c             lui t4, 195936256
+800001a0             addi t4, t4, -273
+800001a4             addi gp, zero, 9
+800001a8             bne a0, t4, fail
+800001ac             csrrs a0, misa, zero
+800001b0             andi a0, a0, 32
+800001b4             beq a0, zero, LOC_00004
+800001b8             lui a1, 24576
+800001bc             csrrs zero, mstatus, a1
+800001c0             Not Implemented
+800001c4             csrrc zero, mstatus, a1
+800001c8             auipc a1, 8192
+800001cc             addi a1, a1, -456
+800001d0    test_10: Not Implemented
+800001d4             lw a0, 0(a1)
+800001d8             addi t4, zero, 1
+800001dc             addi gp, zero, 10
+800001e0             bne a0, t4, fail
+800001e4  LOC_00004: csrrs a0, misa, zero
+800001e8             srli a0, a0, 20
+800001ec             andi a0, a0, 1
+800001f0             beq a0, zero, finish
+800001f4             lui t0, 8192
+800001f8             addi t0, t0, -2048
+800001fc             csrrc zero, mstatus, t0
+80000200             auipc t0, 0
+80000204             addi t0, t0, 16
+80000208             csrrw zero, mepc, t0
+8000020c             ecall
+80000210    test_11: addi a0, zero, 255
+80000214             csrrw a0, cycle, zero
+80000218             addi t4, zero, 255
+8000021c             addi gp, zero, 11
+80000220             bne a0, t4, fail
+80000224    test_12: addi a0, zero, 255
+80000228             csrrs a0, mstatus, zero
+8000022c             addi t4, zero, 255
+80000230             addi gp, zero, 12
+80000234             bne a0, t4, fail
+80000238     finish: Not Implemented
+8000023c             addi gp, zero, 1
+80000240             ecall
+80000244             bne zero, gp, pass
+80000248       fail: Not Implemented
+8000024c  LOC_00005: beq gp, zero, LOC_00005
+80000250             slli gp, gp, 1
+80000254             ori gp, gp, 1
+80000258             ecall
+8000025c       pass: Not Implemented
+80000260             addi gp, zero, 1
+80000264             ecall
+80000268 mtvec_handler: addi t0, zero, 9
+8000026c             bltu gp, t0, LOC_00006
+80000270             addi t0, zero, 11
+80000274             bgeu t0, gp, privileged
+80000278  LOC_00006: csrrs t0, mcause, zero
+8000027c             addi t1, zero, 8
+80000280             bne t0, t1, fail
+80000284             Not Implemented
+80000288             addi gp, zero, 1
+8000028c             ecall
+80000290 privileged: csrrs t0, mcause, zero
+80000294             addi t1, zero, 2
+80000298             bne t0, t1, fail
+8000029c             csrrs t0, mepc, zero
+800002a0             addi t0, t0, 4
+800002a4             csrrw zero, mepc, t0
+800002a8             ecall
+800002ac             csrrw zero, cycle, zero
+800002b0             Illegal instruction
+800002b2             Illegal instruction
+800002b4             Illegal instruction
+800002b6             Illegal instruction
+800002b8             Illegal instruction
+800002ba             Illegal instruction
+800002bc             Illegal instruction
+800002be             Illegal instruction
+800002c0             Illegal instruction
+800002c2             Illegal instruction
+
+.symtab
+Symbol Value              Size Type     Bind     Vis       Index Name
+[   0] 0x0                   0 NOTYPE   LOCAL    DEFAULT   UNDEF 
+[   1] 0x80000000            0 SECTION  LOCAL    DEFAULT       1 
+[   2] 0x80001000            0 SECTION  LOCAL    DEFAULT       2 
+[   3] 0x80002000            0 SECTION  LOCAL    DEFAULT       3 
+[   4] 0x0                   0 FILE     LOCAL    DEFAULT     ABS /tmp/ccwPGRiM.o
+[   5] 0x8000004c            0 NOTYPE   LOCAL    DEFAULT       1 reset_vector
+[   6] 0x80000004            0 NOTYPE   LOCAL    DEFAULT       1 trap_vector
+[   7] 0x80000040            0 NOTYPE   LOCAL    DEFAULT       1 write_tohost
+[   8] 0x8000003c            0 NOTYPE   LOCAL    DEFAULT       1 handle_exception
+[   9] 0x8000003c            0 NOTYPE   LOCAL    DEFAULT       1 other_exception
+[  10] 0x8000010c            0 NOTYPE   LOCAL    DEFAULT       1 test_2
+[  11] 0x80000248            0 NOTYPE   LOCAL    DEFAULT       1 fail
+[  12] 0x8000011c            0 NOTYPE   LOCAL    DEFAULT       1 test_3
+[  13] 0x8000012c            0 NOTYPE   LOCAL    DEFAULT       1 test_4
+[  14] 0x8000013c            0 NOTYPE   LOCAL    DEFAULT       1 test_5
+[  15] 0x8000014c            0 NOTYPE   LOCAL    DEFAULT       1 test_6
+[  16] 0x80000164            0 NOTYPE   LOCAL    DEFAULT       1 test_7
+[  17] 0x80000180            0 NOTYPE   LOCAL    DEFAULT       1 test_8
+[  18] 0x80000198            0 NOTYPE   LOCAL    DEFAULT       1 test_9
+[  19] 0x80002000            0 NOTYPE   LOCAL    DEFAULT       3 fsw_data
+[  20] 0x800001d0            0 NOTYPE   LOCAL    DEFAULT       1 test_10
+[  21] 0x80000238            0 NOTYPE   LOCAL    DEFAULT       1 finish
+[  22] 0x80000210            0 NOTYPE   LOCAL    DEFAULT       1 test_11
+[  23] 0x80000224            0 NOTYPE   LOCAL    DEFAULT       1 test_12
+[  24] 0x8000025c            0 NOTYPE   LOCAL    DEFAULT       1 pass
+[  25] 0x80000290            0 NOTYPE   LOCAL    DEFAULT       1 privileged
+[  26] 0x80002010            0 NOTYPE   GLOBAL   DEFAULT       3 end_signature
+[  27] 0x80002000            0 NOTYPE   GLOBAL   DEFAULT       3 begin_signature
+[  28] 0x80000000            0 NOTYPE   GLOBAL   DEFAULT       1 _start
+[  29] 0x80000268            0 NOTYPE   WEAK     DEFAULT       1 mtvec_handler
+[  30] 0x80002010            0 NOTYPE   GLOBAL   DEFAULT       3 _end
+[  31] 0x80001040            0 NOTYPE   GLOBAL   DEFAULT       2 fromhost
+[  32] 0x80001000            0 NOTYPE   GLOBAL   DEFAULT       2 tohost

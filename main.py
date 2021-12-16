@@ -9,8 +9,8 @@ def main(input_path, output_path):
 
     # out = elf.to_string(param = 'header')
     # out = elf.to_string(param = 'sections')
-    out = elf.to_string(param = 'symtab')
-    print(out)
+    # out = elf.to_string(param = 'symtab')
+    # print(out)
     # out = elf.to_string(param = 'commands')
     out = elf.to_string(param = 'to_test')
     # print(out)
