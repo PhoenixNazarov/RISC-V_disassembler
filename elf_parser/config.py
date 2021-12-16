@@ -122,6 +122,7 @@ symtab_special = {
 }
 
 # TEXT
+nop = '10011'.rjust(32, '0')
 match_uncompress_command = {
     'R': {
         (0, 7): 'opcode',
@@ -164,13 +165,13 @@ match_uncompress_command = {
         (7, 12): 'rd',
         (12, 32): 'imm2010'
     },
-    "CSR": {
-        (0, 7): 'opcode',
-        (7, 12): 'rd',
-        (12, 15): 'funct3',
-        (15, 20): 'rs1',
-        (20, 32): 'csr'
-    }
+    # "CSR": {
+    #     (0, 7): 'opcode',
+    #     (7, 12): 'rd',
+    #     (12, 15): 'funct3',
+    #     (15, 20): 'rs1',
+    #     (20, 32): 'csr'
+    # }
 }
 
 IMMS_UMCOMPRESS = {
@@ -195,13 +196,25 @@ ABI_REGISTERS = {
     (28, 32): lambda i: "t" + str(i - 28 + 3)
 }
 
+# i deadinside
+csr_opcode = '1110011'
+csr_alot_registers = {
+    (0xC03, 0xC1F): lambda i: f'hpmcounter{int(i, 16) - 0xC00}',
+    (0xC84, 0xC9F): lambda i: f'hpmcounter{int(i, 16) - 0xC81}h',
+    (0xB03, 0xB1F): lambda i: f'mhpmcounter{int(i, 16) - 0xB00}',
+    (0x323, 0x33F): lambda i: f'mhpmevent{int(i, 16) - 0x320}'
+
+}
+csr_registers = {'0x000': 'ustatus', '0x004': 'uie', '0x005': 'utvec', '0x040': 'uscratch', '0x041': 'uepc', '0x042': 'ucause', '0x043': 'ubadaddr', '0x044': 'uip', '0x001': 'fflags', '0x002': 'frm', '0x003': 'fcsr', '0xc00': 'cycle', '0xc01': 'time', '0xc02': 'instret', '0xc80': 'cycleh', '0xc81': 'timeh', '0xc82': 'instreth', '0x100': 'sstatus', '0x102': 'sedeleg', '0x103': 'sideleg', '0x104': 'sie', '0x105': 'stvec', '0x140': 'sscratch', '0x141': 'sepc', '0x142': 'scause', '0x143': 'sbadaddr', '0x144': 'sip', '0x180': 'sptbr', '0x200': 'hstatus', '0x202': 'hedeleg', '0x203': 'hideleg', '0x204': 'hie', '0x205': 'htvec', '0x240': 'hscratch', '0x241': 'hepc', '0x242': 'hcause', '0x243': 'hbadaddr', '0x244': 'hip', '0x28x': 'tbd', '0xf11': 'mvendorid', '0xf12': 'marchid', '0xf13': 'mimpid', '0xf14': 'mhartid', '0x300': 'mstatus', '0x301': 'misa', '0x302': 'medeleg', '0x303': 'mideleg', '0x304': 'mie', '0x305': 'mtvec', '0x340': 'mscratch', '0x341': 'mepc', '0x342': 'mcause', '0x343': 'mbadaddr', '0x344': 'mip', '0x380': 'mbase', '0x381': 'mbound', '0x382': 'mibase', '0x383': 'mibound', '0x384': 'mdbase', '0x385': 'mdbound', '0xb00': 'mcycle', '0xb02': 'minstret', '0xb80': 'mcycleh', '0xb82': 'minstreth', '0x320': 'mucounteren', '0x321': 'mscounteren', '0x322': 'mhcounteren', '0x7a0': 'tselect', '0x7a1': 'tdata1', '0x7a2': 'tdata2', '0x7a3': 'tdata3', '0x7b0': 'dcsr', '0x7b1': 'dpc', '0x7b2': 'dscratch'}
+
+
 base_uncompress = [
-    {'type': 'CSR', 'opcode': '1110011', 'funct3': '001', 'name': 'csrrw'},
-    {'type': 'CSR', 'opcode': '1110011', 'funct3': '010', 'name': 'csrrs'},
-    {'type': 'CSR', 'opcode': '1110011', 'funct3': '011', 'name': 'csrrc'},
-    {'type': 'CSR', 'opcode': '1110011', 'funct3': '101', 'name': 'csrrwi'},
-    {'type': 'CSR', 'opcode': '1110011', 'funct3': '110', 'name': 'csrsi'},
-    {'type': 'CSR', 'opcode': '1110011', 'funct3': '111', 'name': 'csrci'},
+    {'type': 'I', 'opcode': '1110011', 'funct3': '001', 'name': 'csrrw'},
+    {'type': 'I', 'opcode': '1110011', 'funct3': '010', 'name': 'csrrs'},
+    {'type': 'I', 'opcode': '1110011', 'funct3': '011', 'name': 'csrrc'},
+    {'type': 'I', 'opcode': '1110011', 'funct3': '101', 'name': 'csrrwi'},
+    {'type': 'I', 'opcode': '1110011', 'funct3': '110', 'name': 'csrsi'},
+    {'type': 'I', 'opcode': '1110011', 'funct3': '111', 'name': 'csrci'},
     {'type': 'U', 'opcode': '0110111', 'name': 'lui'},
     {'type': 'U', 'opcode': '0010111', 'name': 'auipc'},
     {'type': 'J', 'opcode': '1101111', 'name': 'jal'},
@@ -239,7 +252,8 @@ base_uncompress = [
     {'type': 'R', 'funct3': '101', 'funct7': '0100000', 'opcode': '0110011', 'name': 'sra'},
     {'type': 'R', 'funct3': '110', 'funct7': '0000000', 'opcode': '0110011', 'name': 'or'},
     {'type': 'R', 'funct3': '111', 'funct7': '0000000', 'opcode': '0110011', 'name': 'and'},
-    {'type': 'I', 'funct3': '000', 'opcode': '1110011', 'name': 'ecall'},
+    {'type': 'I', 'funct3': '000', 'opcode': '0001111', 'name': 'fence'},
+    {'type': 'I', 'funct3': '000', 'opcode': '1110011', 'name': 'ebreak'},
     {'type': 'I', 'funct3': '000', 'opcode': '1110011', 'name': 'ebreak'},
     {'type': 'R', 'funct3': '000', 'funct7': '0000001', 'opcode': '0110011', 'name': 'mul'},
     {'type': 'R', 'funct3': '001', 'funct7': '0000001', 'opcode': '0110011', 'name': 'mulh'},
@@ -253,15 +267,15 @@ base_uncompress = [
 
 opcodes_type = {'U': {'0110111', '0010111'},
                 'J': {'1101111'},
-                'I': {'0000011', '1100111', '0010011'},
+                'I': {'0000011', '1100111', '0010011', '1110011', '0001111'},
                 'B': {'1100011'},
                 'S': {'0100011'},
                 'R': {'0110011', '0010011'},
-                "CSR": {'1110011'}
+                "CSR": {''}
                 }
 
-I_type_except = ['lb', 'lh', 'lw', 'lbu', 'lhu']
-I_control = ['ecall', 'ebreak']
+I_type_except = ['lb', 'lh', 'lw', 'lbu', 'lhu', 'jalr']
+I_control = ['ecall', 'ebreak', 'fence']
 R_type_except = ['srai', 'srli', 'slli']
 
 # SLLI SRLI SRAI
@@ -273,9 +287,42 @@ funct3_I = ['000', '010', '011', '100', '110', '111']
 # ECALL EBREAK , CSR
 e_opcode = '1110011'
 
-compress = {('00', '000'): 'ADDI4SPN', ('00', '001'): 'FLD', ('00', '010'): 'LW', ('00', '011'): 'FLW',
-            ('00', '100'): 'Reserved', ('00', '101'): 'FSD', ('00', '110'): 'SW', ('00', '111'): 'FSW',
-            ('01', '000'): 'ADDI', ('01', '001'): 'JAL', ('01', '010'): 'LI', ('01', '011'): 'LUI/ADDI16SP',
-            ('01', '100'): 'MISC-ALU', ('01', '101'): 'J', ('01', '110'): 'BEQZ', ('01', '111'): 'BNEZ',
-            ('10', '000'): 'SLLI', ('10', '001'): 'FLDSP', ('10', '010'): 'LWSP', ('10', '011'): 'FLWSP',
-            ('10', '100'): 'J[AL]R/MV/ADD', ('10', '101'): 'FSDSP', ('10', '110'): 'SWSP', ('10', '111'): 'FSWSP'}
+compress_names = {
+    ('00', '000'): 'addi4spn',
+    ('00', '001'): 'fld',
+    ('00', '010'): 'lw',
+    ('00', '011'): 'flw',
+    ('00', '100'): 'reserved',
+    ('00', '101'): 'fsd',
+    ('00', '110'): 'sw',
+    ('00', '111'): 'fsw',
+    ('01', '000'): 'addi',
+    ('01', '001'): 'jal',
+    ('01', '010'): 'li',
+    ('01', '011'): 'lui/addi16sp',
+    ('01', '100'): 'misc-alu',
+    ('01', '101'): 'j',
+    ('01', '110'): 'beqz',
+    ('01', '111'): 'bnez',
+    ('10', '000'): 'slli',
+    ('10', '001'): 'fldsp',
+    ('10', '010'): 'lwsp',
+    ('10', '011'): 'flwsp',
+    ('10', '100'): 'j[al]r/mv/add',
+    ('10', '101'): 'fsdsp',
+    ('10', '110'): 'swsp',
+    ('10', '111'): 'fswsp'
+}
+# 0 1 2 3 4 5 6 7
+# 5 4 9 8 7 6 2 3
+match_compress = {
+    'r42': lambda i: i[-5: -2],
+    'r97': lambda i: i[-10: -7],
+    'r512': lambda i: i[-13: -5],
+    'immasp': lambda i: i
+}
+
+
+formats = {
+    ('sw', 'sh', 'sb'): "{name} {}"
+}

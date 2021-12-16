@@ -1,5 +1,6 @@
 from pprint import pprint
 
+import settings as st
 from elf_parser import config as fm
 from elf_parser.exceptions import *
 from elf_parser.elf_obj import Elf32, CommandsBase, Command
@@ -60,7 +61,8 @@ def read(data, _type='from_file') -> Elf32:
     elf.add_symtab(symtab_table)
 
     # Parse Text
-    text_section = elf.get_section_by_name('.text')
+    name_table = st.name_section_of_riscv
+    text_section = elf.get_section_by_name(name_table)
     text_section_start_ind = int(text_section['SH_OFFSET'], 16)
     text_section_size = int(text_section['SH_SIZE'], 16)
 
@@ -68,7 +70,6 @@ def read(data, _type='from_file') -> Elf32:
     commands = CommandsBase(_bytes_text, int(text_section['SH_ADDR'], 16))
     elf.add_command(commands)
     return elf
-
 
 
 def parse_header(_bytes):
