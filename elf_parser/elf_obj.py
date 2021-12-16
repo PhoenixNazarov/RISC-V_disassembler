@@ -45,20 +45,21 @@ class Elf32:
     def get_symtab_for_command(self):
         out = {}
         for i in self.__symtab:
-            val, name = None, None
+            val, name, _type = None, None, None
             for ii in i:
                 if ii[0] == 'VALUE':
                     val = int(ii[1], 16)
                 if ii[0] == 'PARSE_NAME':
                     name = ii[1]
+                if ii[0] == 'INFO':
+                    _type = fm.symtab_types[int(ii[1], 16) & 15]
 
             if val is None or name is None:
                 print('one row in symtab is broken')
                 continue
 
-            # if val in out:
-            #     print('hm', val, name)
-            #     continue
+            if val in out and _type != 'FUNC':
+                continue
             out.update({val: {'name': name}})
         Command.symtab = out
 
@@ -155,6 +156,7 @@ class CommandsBase:
 
     def to_string(self, _format):
         _error = [0]
+        row = 0
 
         def checker(func):
             try:
@@ -171,13 +173,14 @@ class CommandsBase:
 
         string = ''
         for i in self.__commands:
+            row += 1
             values = checker(i.take_var_to_format)
             if values is None:
                 string += 'exception on this row\n'
                 continue
             string += _format.format(*values)
 
-        print(f'complete parse command with {_error} errors')
+        print(f'complete parse command with {_error[0]}/{row} errors')
         return string
 
 

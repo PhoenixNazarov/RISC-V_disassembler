@@ -1,7 +1,7 @@
 import settings as st
 from elf_parser import config as fm
 from elf_parser.exceptions import *
-from elf_parser.elf_obj import Elf32, CommandsBase, Command
+from elf_parser.elf_obj import Elf32, CommandsBase
 
 
 @check_algorithms
