@@ -36,7 +36,7 @@ def open_file(path):
         _bytes = [hex(byte) for byte in _bytes]
 
 
-@check_global_funct
+# @check_global_funct
 def read(data, _type='from_file') -> Elf32:
     if _type == 'from_file':
         data = open_file(data)
@@ -120,7 +120,7 @@ def parse_symtab(_bytes, count):
     return symtabs
 
 
-@check_exception
+# @check_exception
 def parse_text(elf, _bytes):
     name_table = st.name_section_of_riscv
     text_section = elf.get_section_by_name(name_table)

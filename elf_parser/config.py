@@ -333,24 +333,7 @@ compress_names = {
     ('01', '001'): 'jal',  # 001 imm[11|4|9:8|10|6|7|3:1|5] 01
     ('01', '010'): 'li',  # 010 imm[5] rd̸=0 imm[4:0] 01
     ('01', '011'): 'lui/addi16sp',  # 011 nzimm[9] 2 nzimm[4|6|8:7|5] 01
-    # 011 nzimm[17] rd̸={0, 2} nzimm[16:12] 01
     ('01', '100'): 'misc-alu',
-
-    # 100 nzuimm[5] 00 rs1 ′/rd ′ nzuimm[4:0] 01 C.SRLI (RV32 NSE, nzuimm[5]=1)
-    # 100 0 00 rs1 ′/rd ′ 0 01 C.SRLI64 (RV128; RV32/64 HINT)
-    # 100 nzuimm[5] 01 rs1 ′/rd ′ nzuimm[4:0] 01 C.SRAI (RV32 NSE, nzuimm[5]=1)
-    # 100 0 01 rs1 ′/rd ′ 0 01 C.SRAI64 (RV128; RV32/64 HINT)
-    # 100 imm[5] 10 rs1 ′/rd ′
-    # imm[4:0] 01 C.ANDI
-    # 100 0 11 rs1 ′/rd ′ 00 rs2 ′ 01 C.SUB
-    # 100 0 11 rs1 ′/rd ′ 01 rs2 ′ 01 C.XOR
-    # 100 0 11 rs1 ′/rd ′ 10 rs2 ′ 01 C.OR
-    # 100 0 11 rs1 ′/rd ′ 11 rs2 ′ 01 C.AND
-    # 100 1 11 rs1 ′/rd ′ 00 rs2 ′ 01 C.SUBW (RV64/128; RV32 RES)
-    # 100 1 11 rs1 ′/rd ′ 01 rs2 ′ 01 C.ADDW (RV64/128; RV32 RES)
-    # 100 1 11 — 10 — 01 Reserved
-    # 100 1 11 — 11 — 01 Reserved
-
     ('01', '101'): 'j',  # 101 imm[11|4|9:8|10|6|7|3:1|5] 01
     ('01', '110'): 'beqz',  #
     ('01', '111'): 'bnez',

@@ -40,6 +40,8 @@ def check_exception(func):
             print(f'{func.__name__:20}: elfError')
             exit()
         except TypeError:
+            if func.__name__ == 'parse_text':
+                print('May be set incorrect values in name_section_of_riscv')
             print(f'{func.__name__:20}: typeError')
             exit()
         except UnboundLocalError:
@@ -77,6 +79,7 @@ def replace_unknown_data(name):
                 return name
         return wrap
     return check_unknown_data
+
 
 def check_command(func):
     @wraps(func)

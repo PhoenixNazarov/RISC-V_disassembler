@@ -6,7 +6,7 @@ from elf_parser import config as fm
 import settings as st
 
 
-@check_global_funct
+# @check_global_funct
 class Elf32:
     def __init__(self):
         self.__headers = {}
@@ -58,8 +58,8 @@ class Elf32:
                 print('one row in symtab is broken')
                 continue
 
-            if val in out and _type != 'FUNC':
-                continue
+            # if val in out and _type != 'FUNC':
+            #     continue
             out.update({val: {'name': name}})
         Command.symtab = out
 
@@ -286,7 +286,7 @@ class Command:
                 return f'LOC_{self.cur_point[0]:05x}'
 
             case _:
-                raise "new_lock_name_type in settings.py set incorrect"
+                print('program settings error')
 
     def update_points(self):
         if self.addr in self._points:
@@ -338,7 +338,8 @@ class CommandCompress(Command):
             if v in i:
                 return fm.rvc_match['r'](self._bits, fm.rvc_blocks[i][0], fm.rvc_blocks[i][1])
         else:
-            raise v
+            print('не удалось найти ' + v)
+            return '0000000000000000'
 
     def __match_data(self):
         if self.__name == 'lui/addi16sp':
@@ -583,7 +584,9 @@ class CommandUncompress(Command):
                 suitable_rows.append(row)
 
         if len(suitable_rows) == 0:
-            raise 'Необрабатываемая команда'
+            return "unknown_command"
+            # print(self.__type, self.__values)
+            # print('Не удалось найти функцию')
 
         if len(suitable_rows) == 1:
             self.__name = suitable_rows[0]['name']
@@ -600,8 +603,9 @@ class CommandUncompress(Command):
                         self.__name = row['name']
                         break
         else:
-            print(self.__type, self.__values)
-            raise 'Не удалось найти функцию'
+            return "unknown_command"
+            # print(self.__type, self.__values)
+            # raise 'Не удалось найти функцию'
 
     def __str__(self):
         # DEBUG
